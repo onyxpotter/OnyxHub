@@ -1,0 +1,411 @@
+--// SERVICES
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
+local RunService = game:GetService("RunService")
+
+--// PLAYER
+local player = Players.LocalPlayer
+local function getCharacter()
+    return player.Character or player.CharacterAdded:Wait()
+end
+local character = getCharacter()
+local hrp = character:WaitForChild("HumanoidRootPart")
+player.CharacterAdded:Connect(function(char)
+    character = char
+    hrp = char:WaitForChild("HumanoidRootPart")
+end)
+
+--// 🔥 AUTO COPY KEY LINK (FIRST THING AFTER EXECUTING THE SCRIPT)
+local keyLink = "https://link-hub.net/3366157/l4yuNe0Cjq5K"
+if setclipboard then
+    setclipboard(keyLink)
+    warn("KEY LINK AUTO-COPIED TO CLIPBOARD!")
+    print("→ Copied link: " .. keyLink)
+    print("Open this link in your browser to get the key!.")
+else
+    warn("Your executor does NOT support setclipboard")
+    print("Key link (copy manually): " .. keyLink)
+end
+
+--// IMMEDIATE NATIVE NOTIFICATION
+StarterGui:SetCore("SendNotification", {
+    Title = "ONYX HUB",
+    Text = "Key link has been AUTO-COPIED to your clipboard!\nOpen it now to get the key.",
+    Duration = 10,
+    Button1 = "OK",
+})
+
+--// CONFIG
+local CONFIG = {
+    StealRadius = 50,
+    StealDelay = 0.1,
+    LoopDelay = 0.4,
+    AutoLoop = false,
+    AutoCollectGuns = false,
+    AutoKillMurderer = false,
+    ESP_Enabled = true,
+}
+
+--// REMOTE
+local RemoteEvent = ReplicatedStorage
+    :WaitForChild("Libraries")
+    :WaitForChild("Packet")
+    :WaitForChild("RemoteEvent")
+
+--// CACHE FOLDERS
+local folders = {
+    workspace:FindFirstChild("Brainrots"),
+    workspace:FindFirstChild("Drops"),
+    workspace:FindFirstChild("Items"),
+    workspace:FindFirstChild("Collectibles"),
+}
+
+--// TELEPORT
+local function teleportTo(pos)
+    if hrp then
+        hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+        task.wait(0.25)
+    end
+end
+
+--// BASE POSITION
+local function getBasePosition()
+    local bosses = workspace:FindFirstChild("Bosses")
+    if not bosses then return nil end
+    local base = bosses:FindFirstChild("base13")
+    if not base then return nil end
+    local root = base:FindFirstChild("HumanoidRootPart") or base:FindFirstChildWhichIsA("BasePart")
+    return root and root.Position or nil
+end
+
+--// GET BEST BRAINROT
+local function getBestBrainrot(basePos)
+    local bestItem, bestScore = nil, -math.huge
+    for _, folder in ipairs(folders) do
+        if folder then
+            for _, item in ipairs(folder:GetChildren()) do
+                local part = item:IsA("BasePart") and item or item:FindFirstChildWhichIsA("BasePart")
+                if part then
+                    local dist = (part.Position - basePos).Magnitude
+                    if dist <= CONFIG.StealRadius then
+                        local bps = item:GetAttribute("BPS") or item:GetAttribute("PerSecond") or item:GetAttribute("Value") or item:GetAttribute("Rate") or 0
+                        local score = (bps * 1000) - dist
+                        if score > bestScore then
+                            bestScore = score
+                            bestItem = item
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return bestItem
+end
+
+--// STEAL SYSTEM
+local detectedMode = nil
+local function itemStillExists(item)
+    return item and item.Parent ~= nil
+end
+local function trySteal(args, item)
+    pcall(function()
+        RemoteEvent:FireServer(unpack(args))
+    end)
+    task.wait(0.15)
+    return not itemStillExists(item)
+end
+local function detectMode(item)
+    local patterns = {{"Steal", item}, {"Collect", item}, {"PickUp", item}, {"Take", item}, {item}}
+    for _, args in ipairs(patterns) do
+        if trySteal(args, item) then
+            print("[DETECTED MODE]:", args[1] or "Instance")
+            return args
+        end
+    end
+    return nil
+end
+
+local function triggerPrompt(item)
+    local prompt = item:FindFirstChildWhichIsA("ProximityPrompt", true)
+    if not prompt and item.Parent then
+        prompt = item.Parent:FindFirstChildWhichIsA("ProximityPrompt", true)
+    end
+    if prompt then
+        prompt.HoldDuration = 0
+        fireproximityprompt(prompt)
+        task.wait(CONFIG.StealDelay)
+        return true
+    end
+    return false
+end
+
+local function stealItem(item)
+    if not item then return false end
+    local part = item:IsA("BasePart") and item or item:FindFirstChildWhichIsA("BasePart")
+    if part then teleportTo(part.Position) end
+    if triggerPrompt(item) then
+        if not itemStillExists(item) then return true end
+    end
+    if not detectedMode then detectedMode = detectMode(item) end
+    if not detectedMode then return false end
+    local args = {}
+    for i, v in ipairs(detectedMode) do
+        args[i] = (typeof(v) == "Instance") and item or v
+    end
+    for _ = 1, 3 do
+        if trySteal(args, item) then return true end
+        task.wait(0.1)
+    end
+    detectedMode = nil
+    return false
+end
+
+--// RUN BRAINROT CYCLE
+local function runBrainrotCycle()
+    local basePos = getBasePosition()
+    if not basePos then return end
+    teleportTo(basePos)
+    for _ = 1, 15 do
+        basePos = getBasePosition()
+        if not basePos then break end
+        local bestItem = getBestBrainrot(basePos)
+        if not bestItem then break end
+        local success = stealItem(bestItem)
+        if success then break end
+    end
+    teleportTo(CONFIG.SpawnLocation or hrp.Position)
+end
+
+--// AUTO COLLECT GUNS
+local function autoCollectGuns()
+    if not CONFIG.AutoCollectGuns then return end
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("pistol") or obj.Name:lower():find("revolver")) then
+            local handle = obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
+            if handle and (handle.Position - hrp.Position).Magnitude < 80 then
+                teleportTo(handle.Position)
+                task.wait(0.2)
+                local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
+                if humanoid then humanoid:EquipTool(obj) end
+            end
+        end
+    end
+end
+
+--// FIXED & IMPROVED ESP (Highlight + Role Name Label)
+local espTable = {}
+local function createESP(plr)
+    if plr == player or espTable[plr] then return end
+
+    local function applyToCharacter(char)
+        if not char then return end
+
+        -- Improved role detection (works for most Brainrot MM games)
+        local role = plr:GetAttribute("Role") 
+                 or (plr:FindFirstChild("Role") and plr.Role.Value) 
+                 or (char:FindFirstChild("Role") and char.Role.Value) 
+                 or "Innocent"
+
+        local color = Color3.fromRGB(255, 255, 255)
+        if role:lower() == "murderer" then color = Color3.fromRGB(255, 0, 0)
+        elseif role:lower() == "sheriff" then color = Color3.fromRGB(0, 255, 0)
+        end
+
+        -- Highlight
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "BrainrotESP"
+        highlight.FillColor = color
+        highlight.OutlineColor = color
+        highlight.FillTransparency = 0.4
+        highlight.OutlineTransparency = 0
+        highlight.Parent = char
+
+        -- Role Name Label (BillboardGui)
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "RoleLabel"
+        billboard.Adornee = char:FindFirstChild("Head")
+        billboard.Size = UDim2.new(0, 200, 0, 50)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Parent = char
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.BackgroundTransparency = 1
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.Text = role:upper() .. " [" .. plr.Name .. "]"
+        textLabel.TextColor3 = color
+        textLabel.TextScaled = true
+        textLabel.Font = Enum.Font.GothamBold
+        textLabel.Parent = billboard
+
+        espTable[plr] = {Highlight = highlight, Billboard = billboard}
+    end
+
+    if plr.Character then applyToCharacter(plr.Character) end
+    plr.CharacterAdded:Connect(applyToCharacter)
+end
+
+local function updateESP()
+    if not CONFIG.ESP_Enabled then
+        for _, data in pairs(espTable) do
+            if data.Highlight then data.Highlight:Destroy() end
+            if data.Billboard then data.Billboard:Destroy() end
+        end
+        espTable = {}
+        return
+    end
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        createESP(plr)
+    end
+end
+
+--// AUTO KILL MURDERER
+local function autoKillMurderer()
+    if not CONFIG.AutoKillMurderer then return end
+    local tool = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
+    if not tool then return end
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local role = plr:GetAttribute("Role") or (plr:FindFirstChild("Role") and plr.Role.Value) or "Innocent"
+            if role:lower() == "murderer" then
+                local targetHRP = plr.Character.HumanoidRootPart
+                if (targetHRP.Position - hrp.Position).Magnitude < 120 then
+                    hrp.CFrame = CFrame.lookAt(hrp.Position, targetHRP.Position)
+                    if tool:FindFirstChild("Remote") then
+                        tool.Remote:FireServer(targetHRP.Position)
+                    else
+                        tool:Activate()
+                    end
+                    task.wait(0.08)
+                end
+            end
+        end
+    end
+end
+
+--// MAIN CYCLE
+CONFIG.SpawnLocation = hrp.Position
+local function runCycle()
+    runBrainrotCycle()
+end
+
+--// RAYFIELD GUI (Clean & Organized like your original script)
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+    Name = "Murder Mystery For Brainrots - Onyx Hub",
+    LoadingTitle = "Murder Mystery For Brainrots",
+    LoadingSubtitle = "by Onyx",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "BeaBrainrotKey",
+        FileName = "Config"
+    },
+    Discord = { Invite = "noinvitelink", RememberJoins = true },
+    KeySystem = true,
+    KeySettings = {
+        Title = "🔑 Key System",
+        Subtitle = "Authentication Required",
+        Note = "https://link-hub.net/3366157/l4yuNe0Cjq5K.\n(Change the key in the script source if you want)",
+        FileName = "BeaBrainrotKey",
+        SaveKey = true,
+        GrabKeyFromSite = "false",
+        Key = "BEABRAINROTONYX"
+    }
+})
+
+local MainTab = Window:CreateTab("Main", 4483362458)
+
+MainTab:CreateSection("⚙️ Controls")
+local AutoLoopToggle = MainTab:CreateToggle({
+    Name = "Auto Catch Best Brainrots",
+    CurrentValue = CONFIG.AutoLoop,
+    Flag = "AutoLoop",
+    Callback = function(Value) CONFIG.AutoLoop = Value end,
+})
+local AutoGunsToggle = MainTab:CreateToggle({
+    Name = "Auto Collect Guns",
+    CurrentValue = CONFIG.AutoCollectGuns,
+    Flag = "AutoGuns",
+    Callback = function(Value) CONFIG.AutoCollectGuns = Value end,
+})
+local AutoKillToggle = MainTab:CreateToggle({
+    Name = "Auto Kill Murderer (when holding gun)",
+    CurrentValue = CONFIG.AutoKillMurderer,
+    Flag = "AutoKill",
+    Callback = function(Value) CONFIG.AutoKillMurderer = Value end,
+})
+local ESPToggle = MainTab:CreateToggle({
+    Name = "ESP (Murderer = Red, Sheriff = Green + Name Tag)",
+    CurrentValue = CONFIG.ESP_Enabled,
+    Flag = "ESP",
+    Callback = function(Value) CONFIG.ESP_Enabled = Value end,
+})
+
+MainTab:CreateSection("🔧 Settings")
+local RadiusSlider = MainTab:CreateSlider({
+    Name = "Steal Radius", Range = {10, 200}, Increment = 1, Suffix = " studs",
+    CurrentValue = CONFIG.StealRadius, Flag = "StealRadius",
+    Callback = function(v) CONFIG.StealRadius = v end
+})
+local StealDelaySlider = MainTab:CreateSlider({
+    Name = "Steal Delay", Range = {0.05, 2}, Increment = 0.05, Suffix = "s",
+    CurrentValue = CONFIG.StealDelay, Flag = "StealDelay",
+    Callback = function(v) CONFIG.StealDelay = v end
+})
+local LoopDelaySlider = MainTab:CreateSlider({
+    Name = "Loop Delay", Range = {0.1, 3}, Increment = 0.1, Suffix = "s",
+    CurrentValue = CONFIG.LoopDelay, Flag = "LoopDelay",
+    Callback = function(v) CONFIG.LoopDelay = v end
+})
+
+MainTab:CreateSection("🚀 Actions")
+MainTab:CreateButton({
+    Name = "Run One Brainrot Cycle (Manual)",
+    Callback = function()
+        pcall(runBrainrotCycle)
+        Rayfield:Notify({Title = "Manual Cycle", Content = "One brainrot cycle executed.", Duration = 3})
+    end
+})
+MainTab:CreateButton({
+    Name = "Set Spawn Location (Current Pos)",
+    Callback = function()
+        CONFIG.SpawnLocation = hrp.Position
+        Rayfield:Notify({Title = "Spawn Updated", Content = "New spawn saved.", Duration = 3})
+    end
+})
+MainTab:CreateButton({
+    Name = "Destroy GUI",
+    Callback = function() Rayfield:Destroy() end
+})
+
+MainTab:CreateSection("ℹ️ Info")
+MainTab:CreateParagraph({
+    Title = "How to use",
+    Content = "• Auto Catch Best Brainrots + Auto Guns + ESP + Auto Kill all work together.\n• ESP now shows colored highlight + role name tag above head.\n• Toggle features freely — everything is fixed and stable."
+})
+
+--// FIXED AUTO LOOP + FEATURES
+task.spawn(function()
+    while true do
+        if CONFIG.AutoLoop then pcall(runCycle) end
+        if CONFIG.AutoCollectGuns then pcall(autoCollectGuns) end
+        pcall(autoKillMurderer)
+        pcall(updateESP)
+        task.wait(CONFIG.LoopDelay > 0 and CONFIG.LoopDelay or 0.5)
+    end
+end)
+
+--// ESP CLEANUP
+Players.PlayerRemoving:Connect(function(plr)
+    if espTable[plr] then
+        if espTable[plr].Highlight then espTable[plr].Highlight:Destroy() end
+        if espTable[plr].Billboard then espTable[plr].Billboard:Destroy() end
+        espTable[plr] = nil
+    end
+end)
+
+print("✅ Murder Mystery For Brainrots Script Loaded!")
+print("Auto Catch + Auto Guns + Fixed ESP + Auto Kill all active!")
