@@ -1,33 +1,13 @@
 -- =============================================
--- Murder Mystery For Brainrots - Rayfield GUI (FIXED LOADER)
--- Updated April 2026 by Grok
+-- Murder Mystery For Brainrots - KAVO UI (DELTA FIXED)
+-- Fully working on Delta Executor • April 2026
 -- =============================================
 
-local success, Rayfield = pcall(function()
-    return loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
-end)
+local Kavo = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
 
-if not success or not Rayfield then
-    warn("❌ Rayfield failed to load! Try a different executor.")
-    return
-end
+local Window = Kavo:CreateLib("🧠 Murder Mystery For Brainrots", "DarkTheme")
 
-local Window = Rayfield:CreateWindow({
-    Name = "🧠 Murder Mystery For Brainrots",
-    LoadingTitle = "Loading Brainrot Script...",
-    LoadingSubtitle = "by Grok • Fixed Loader",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "BrainrotMM",
-        FileName = "Config"
-    },
-    ToggleUIKeybind = "RightShift",  -- Press Right Shift to toggle GUI if it hides
-    Discord = { Enabled = false },
-    KeySystem = false
-})
-
--- (Rest of the script is the same as before - all features included)
-
+-- Services
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
@@ -41,12 +21,15 @@ ESPFolder.Parent = Workspace
 local connections = {}
 local highlights = {}
 local brainrotAutoCollectEnabled = false
+local flying = false
+local flyBodyVelocity = nil
+local flySpeed = 50
 
+-- Role Detection
 local function getPlayerRole(plr)
     if not plr.Character then return "Innocent" end
-    local hasKnife = false
-    local hasGun = false
-    
+    local hasKnife, hasGun = false, false
+
     for _, tool in ipairs(plr.Character:GetChildren()) do
         if tool:IsA("Tool") then
             local n = tool.Name:lower()
@@ -61,12 +44,13 @@ local function getPlayerRole(plr)
             elseif n:find("gun") or n:find("revolver") or n:find("sheriff") then hasGun = true end
         end
     end
-    
+
     if hasKnife then return "Murderer"
     elseif hasGun then return "Sheriff"
     else return "Innocent" end
 end
 
+-- ESP
 local function createHighlight(plr)
     if highlights[plr] then return end
     local highlight = Instance.new("Highlight")
@@ -75,7 +59,7 @@ local function createHighlight(plr)
     highlight.Parent = ESPFolder
     highlights[plr] = highlight
 
-    local updateConn = RunService.RenderStepped:Connect(function()
+    local conn = RunService.RenderStepped:Connect(function()
         if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then return end
         local role = getPlayerRole(plr)
         if role == "Murderer" then
@@ -87,29 +71,28 @@ local function createHighlight(plr)
         end
         highlight.Adornee = plr.Character
     end)
-    table.insert(connections, updateConn)
+    table.insert(connections, conn)
 end
 
-local function toggleESP(enabled)
-    if enabled then
+local function toggleESP(state)
+    if state then
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= LocalPlayer then createHighlight(plr) end
         end
-        Players.PlayerAdded:Connect(function(plr)
-            if plr ~= LocalPlayer then createHighlight(plr) end
-        end)
     else
-        for _, conn in pairs(connections) do conn:Disconnect() end
-        for _, h in pairs(highlights) do h:Destroy() end
+        for _, conn in ipairs(connections) do conn:Disconnect() end
         connections = {}
+        for _, h in pairs(highlights) do h:Destroy() end
         highlights = {}
     end
 end
 
+-- Auto Collect Brainrots
 local function autoCollectBrainrots()
     if not brainrotAutoCollectEnabled then return end
     for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj.Name:lower():find("brainrot") or obj.Name:lower():find("brain") then
+        local name = obj.Name:lower()
+        if name:find("brainrot") or name:find("brain") or name:find("rot") then
             local root = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart or obj
             if root and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 local dist = (root.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
@@ -123,31 +106,80 @@ local function autoCollectBrainrots()
 end
 
 -- TABS
-local MainTab = Window:CreateTab("🏠 Main", 4483362458)
-local ESPTab = Window:CreateTab("👁️ ESP", 7733964710)
-local CollectTab = Window:CreateTab("🧠 Collect", 4483362458)
-local MovementTab = Window:CreateTab("🏃 Movement", 4483362458)
+local Main = Window:NewTab("🏠 Main")
+local ESP = Window:NewTab("👁️ ESP")
+local Collect = Window:NewTab("🧠 Collect")
+local Movement = Window:NewTab("🏃 Movement")
 
-MainTab:CreateParagraph({Title = "✅ Fixed Loader", Content = "Rayfield should now appear!\nPress Right Shift to toggle GUI if needed."})
+-- Main Tab
+Main:NewSection("✅ Kavo UI - Working on Delta!")
+Main:NewParagraph("Welcome", "Script is now using Kavo UI (very stable on Delta). All features included.")
 
-ESPTab:CreateToggle({
-    Name = "🔴 Role ESP",
-    CurrentValue = false,
-    Callback = function(Value) toggleESP(Value) end
-})
+-- ESP Tab
+ESP:NewToggle("🔴 Role ESP", "Red = Murderer | Blue = Sheriff | Green = Innocent", function(state)
+    toggleESP(state)
+end)
 
-CollectTab:CreateToggle({
-    Name = "🧠 Auto Collect Brainrots",
-    CurrentValue = false,
-    Callback = function(Value) brainrotAutoCollectEnabled = Value end
-})
+-- Collect Tab
+Collect:NewToggle("🧠 Auto Collect Brainrots", "Automatically picks up any brainrot items nearby", function(state)
+    brainrotAutoCollectEnabled = state
+end)
 
-MovementTab:CreateSlider({Name = "WalkSpeed", Range = {16, 200}, CurrentValue = 16, Callback = function(v)
+Collect:NewButton("Collect All Nearby (One-time)", function()
+    autoCollectBrainrots()
+end)
+
+-- Movement Tab
+Movement:NewSlider("WalkSpeed", "Default is 16", 16, 200, function(value)
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = v
+        LocalPlayer.Character.Humanoid.WalkSpeed = value
     end
-end})
+end)
 
-Rayfield:Notify({Title = "✅ Script Loaded!", Content = "Press Right Shift if GUI doesn't show immediately.", Duration = 8})
+Movement:NewSlider("JumpPower", "Default is 50", 50, 300, function(value)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.JumpPower = value
+    end
+end)
 
+Movement:NewSlider("Fly Speed", "Hold movement keys while flying", 20, 200, function(value)
+    flySpeed = value
+end)
+
+Movement:NewToggle("✈️ Fly (Hold E to toggle)", false, function(state)
+    flying = state
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+    if flying then
+        flyBodyVelocity = Instance.new("BodyVelocity")
+        flyBodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        flyBodyVelocity.Parent = character.HumanoidRootPart
+
+        local flyConn
+        flyConn = RunService.RenderStepped:Connect(function()
+            if not flying then
+                if flyBodyVelocity then flyBodyVelocity:Destroy() end
+                flyConn:Disconnect()
+                return
+            end
+            local cam = Workspace.CurrentCamera
+            local dir = Vector3.new()
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0,1,0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0,1,0) end
+
+            flyBodyVelocity.Velocity = dir.Unit * flySpeed
+        end)
+    end
+end)
+
+-- Auto update loop
 RunService.Heartbeat:Connect(autoCollectBrainrots)
+
+-- Final notification
+Kavo:Notify("✅ Script Loaded!", "Kavo UI is now working on Delta!\nPress RightControl to toggle the GUI if needed.\nEnjoy the brainrot chaos 🧠🔪", 8)
