@@ -530,4 +530,97 @@ function BlackBoxUI:CreateWindow(options)
             dropdownList.Name = "DropdownList"
             dropdownList.Size = UDim2.new(1, 0, 0, 0)
             dropdownList.Position = UDim2.new(0, 0, 1, 5)
-     
+            dropdownList.BackgroundColor3 = Themes.Dark.BgSecondary
+            dropdownList.Visible = false
+            dropdownList.ClipsDescendants = true
+            dropdownList.Parent = dropdownFrame
+            
+            createCorner(dropdownList, 12)
+            createStroke(dropdownList, 1, Themes.Dark.Stroke)
+            
+            local listLayout = Instance.new("UIListLayout")
+            listLayout.Padding = UDim.new(0, 2)
+            listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            listLayout.Parent = dropdownList
+            
+            local dropdownOpen = false
+            
+            local function toggleDropdown()
+                dropdownOpen = not dropdownOpen
+                dropdownList.Visible = dropdownOpen
+                TweenService:Create(dropdownList, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
+                    Size = dropdownOpen and UDim2.new(1, 0, 0, math.min(#items * 35, 140)) or UDim2.new(1, 0, 0, 0)
+                }):Play()
+            end
+            
+            mainBtn.MouseButton1Click:Connect(function()
+                rippleEffect(mainBtn)
+                toggleDropdown()
+            end)
+            
+            -- Create dropdown items
+            for i, item in ipairs(items) do
+                local itemBtn = Instance.new("TextButton")
+                itemBtn.Size = UDim2.new(1, -10, 0, 32)
+                itemBtn.Position = UDim2.new(0, 5, 0, 0)
+                itemBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255, 0)
+                itemBtn.Text = item
+                itemBtn.TextColor3 = Themes.Dark.TextPrimary
+                itemBtn.TextScaled = true
+                itemBtn.Font = Enum.Font.Gotham
+                itemBtn.Parent = dropdownList
+                
+                createCorner(itemBtn, 8)
+                
+                itemBtn.MouseButton1Click:Connect(function()
+                    selectedIndex = i
+                    mainBtn.Text = item
+                    toggleDropdown()
+                    if options.Callback then
+                        options.Callback(item, i)
+                    end
+                end)
+                
+                itemBtn.MouseEnter:Connect(function()
+                    TweenService:Create(itemBtn, TweenInfo.new(0.1), {
+                        BackgroundColor3 = Themes.Dark.AccentHover
+                    }):Play()
+                end)
+                
+                itemBtn.MouseLeave:Connect(function()
+                    TweenService:Create(itemBtn, TweenInfo.new(0.1), {
+                        BackgroundColor3 = Color3.fromRGB(255, 255, 255, 0)
+                    }):Play()
+                end)
+            end
+            
+            dropdownFrame.MouseLeave:Connect(function()
+                if dropdownOpen then
+                    wait(0.1)
+                    toggleDropdown()
+                end
+            end)
+            
+            return {
+                Set = function(index)
+                    if items[index] then
+                        selectedIndex = index
+                        mainBtn.Text = items[index]
+                        if options.Callback then
+                            options.Callback(items[index], index)
+                        end
+                    end
+                end,
+                Get = function()
+                    return items[selectedIndex], selectedIndex
+                end
+            }
+        end
+        
+        return tab
+    end
+    
+    return window
+end
+
+return BlackBoxUI
