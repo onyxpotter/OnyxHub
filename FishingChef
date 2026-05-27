@@ -2,7 +2,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
     Name = "Fishing Chef by ONYX HUB",
-    LoadingTitle = "Fishing Chef by ONYX HUB",
+    LoadingTitle = "Fishing Chef",
     LoadingSubtitle = "by ONYX HUB",
     ConfigurationSaving = {
         Enabled = true,
