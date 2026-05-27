@@ -14,6 +14,7 @@ local Window = Rayfield:CreateWindow({
 })
 
 local MainTab = Window:CreateTab("Main", 4483362458)
+local TeleportTab = Window:CreateTab("Teleport", 4483362458)
 
 -- Variables
 local AutoFishEnabled = false
@@ -26,9 +27,8 @@ MainTab:CreateToggle({
     Flag = "AutoFishFlag",
     Callback = function(Value)
         AutoFishEnabled = Value
-        
+       
         while AutoFishEnabled do
-            -- Cast Fishing Rod
             pcall(function()
                 local castArgs = {1}
                 game:GetService("ReplicatedStorage")
@@ -39,10 +39,9 @@ MainTab:CreateToggle({
                     :WaitForChild("RF")
                     :WaitForChild("CastRequest"):InvokeServer(unpack(castArgs))
             end)
-            
-            task.wait(0.001) -- Wait a bit after casting
-            
-            -- Instant Catch
+           
+            task.wait(0.0001)
+           
             pcall(function()
                 local catchArgs = {true}
                 game:GetService("ReplicatedStorage")
@@ -53,8 +52,8 @@ MainTab:CreateToggle({
                     :WaitForChild("RF")
                     :WaitForChild("MinigameResolved"):InvokeServer(unpack(catchArgs))
             end)
-            
-            task.wait(0.001) -- Small delay between cycles
+           
+            task.wait(0.001)
         end
     end,
 })
@@ -76,56 +75,75 @@ MainTab:CreateToggle({
                     :WaitForChild("RE")
                     :WaitForChild("SellFish"):FireServer()
             end)
-            task.wait(4) -- Sell every 4 seconds
+            task.wait(4)
         end
     end,
 })
 
--- Manual Buttons
-MainTab:CreateButton({
-    Name = "Cast Once",
-    Callback = function()
-        local args = {1}
-        game:GetService("ReplicatedStorage")
-            :WaitForChild("Packages")
-            :WaitForChild("Knit")
-            :WaitForChild("Services")
-            :WaitForChild("Fish")
-            :WaitForChild("RF")
-            :WaitForChild("CastRequest"):InvokeServer(unpack(args))
-    end,
-})
+-- ==================== TELEPORT DROPDOWN ====================
+TeleportTab:CreateDropdown({
+    Name = "Teleport to Zone",
+    Options = {"Koi Pond", "Bamboo Forest", "Razor Reef"},
+    CurrentOption = {""},
+    MultipleOptions = false,
+    Flag = "ZoneTeleport",
+    Callback = function(Option)
+        local zoneName = Option[1]
+        if not zoneName or zoneName == "" then return end
+        
+        local targetCFrame = nil
+        local player = game.Players.LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        local root = character:FindFirstChild("HumanoidRootPart")
+        
+        if not root then
+            Rayfield:Notify({Title = "Error", Content = "HumanoidRootPart tidak ditemukan!", Duration = 3})
+            return
+        end
 
-MainTab:CreateButton({
-    Name = "Instant Catch Once",
-    Callback = function()
-        local args = {true}
-        game:GetService("ReplicatedStorage")
-            :WaitForChild("Packages")
-            :WaitForChild("Knit")
-            :WaitForChild("Services")
-            :WaitForChild("Fish")
-            :WaitForChild("RF")
-            :WaitForChild("MinigameResolved"):InvokeServer(unpack(args))
-    end,
-})
+        pcall(function()
+            if zoneName == "Koi Pond" then
+                local model = workspace.Map.Areas.KoiPond.Model.WoodenBridge.Model.Model
+                local children = model:GetChildren()
+                if children[37] then
+                    targetCFrame = children[37].CFrame
+                end
 
-MainTab:CreateButton({
-    Name = "Sell All Fish Now",
-    Callback = function()
-        game:GetService("ReplicatedStorage")
-            :WaitForChild("Packages")
-            :WaitForChild("Knit")
-            :WaitForChild("Services")
-            :WaitForChild("Fish")
-            :WaitForChild("RE")
-            :WaitForChild("SellFish"):FireServer()
-        Rayfield:Notify({Title = "Sell", Content = "Sell All triggered!", Duration = 2})
+            elseif zoneName == "Bamboo Forest" then
+                local model = workspace.Map.Areas.BambooForest.Model
+                local children = model:GetChildren()
+                if children[572] then
+                    targetCFrame = children[572].CFrame
+                end
+
+            elseif zoneName == "Razor Reef" then
+                local landZone = workspace.Map.RazorReef.LandZone:GetChildren()[43]
+                local targetPart = landZone:GetChildren()[2]
+                if targetPart then
+                    targetCFrame = targetPart.CFrame
+                end
+            end
+        end)
+
+        if targetCFrame then
+            root.CFrame = targetCFrame * CFrame.new(0, 6, 0)
+            Rayfield:Notify({
+                Title = "Teleport Berhasil",
+                Content = "Telah teleport ke " .. zoneName,
+                Duration = 3,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Teleport Gagal",
+                Content = "Lokasi " .. zoneName .. " tidak ditemukan atau berubah.",
+                Duration = 4,
+            })
+        end
     end,
 })
 
 Rayfield:Notify({
     Title = "Script Loaded",
-    Content = "Fishing Chef Auto Fish is ready!\nUse 'Auto Fish' toggle",
+    Content = "Fishing Chef Auto Fish is ready!",
     Duration = 6,
 })
