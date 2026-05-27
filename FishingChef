@@ -1,0 +1,131 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Fishing Chef by ONYX HUB",
+    LoadingTitle = "Fishing Chef by ONYX HUB",
+    LoadingSubtitle = "by ONYX HUB",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "FishingChefHub",
+        FileName = "AutoFishConfig"
+    },
+    Discord = { Enabled = false },
+    KeySystem = false,
+})
+
+local MainTab = Window:CreateTab("Main", 4483362458)
+
+-- Variables
+local AutoFishEnabled = false
+local AutoSellEnabled = false
+
+-- ==================== AUTO FISH (Combined) ====================
+MainTab:CreateToggle({
+    Name = "Auto Fish (Cast + Instant Catch)",
+    CurrentValue = false,
+    Flag = "AutoFishFlag",
+    Callback = function(Value)
+        AutoFishEnabled = Value
+        
+        while AutoFishEnabled do
+            -- Cast Fishing Rod
+            pcall(function()
+                local castArgs = {1}
+                game:GetService("ReplicatedStorage")
+                    :WaitForChild("Packages")
+                    :WaitForChild("Knit")
+                    :WaitForChild("Services")
+                    :WaitForChild("Fish")
+                    :WaitForChild("RF")
+                    :WaitForChild("CastRequest"):InvokeServer(unpack(castArgs))
+            end)
+            
+            task.wait(0.001) -- Wait a bit after casting
+            
+            -- Instant Catch
+            pcall(function()
+                local catchArgs = {true}
+                game:GetService("ReplicatedStorage")
+                    :WaitForChild("Packages")
+                    :WaitForChild("Knit")
+                    :WaitForChild("Services")
+                    :WaitForChild("Fish")
+                    :WaitForChild("RF")
+                    :WaitForChild("MinigameResolved"):InvokeServer(unpack(catchArgs))
+            end)
+            
+            task.wait(0.001) -- Small delay between cycles
+        end
+    end,
+})
+
+-- ==================== AUTO SELL ====================
+MainTab:CreateToggle({
+    Name = "Auto Sell All Fish",
+    CurrentValue = false,
+    Flag = "AutoSellFlag",
+    Callback = function(Value)
+        AutoSellEnabled = Value
+        while AutoSellEnabled do
+            pcall(function()
+                game:GetService("ReplicatedStorage")
+                    :WaitForChild("Packages")
+                    :WaitForChild("Knit")
+                    :WaitForChild("Services")
+                    :WaitForChild("Fish")
+                    :WaitForChild("RE")
+                    :WaitForChild("SellFish"):FireServer()
+            end)
+            task.wait(4) -- Sell every 4 seconds
+        end
+    end,
+})
+
+-- Manual Buttons
+MainTab:CreateButton({
+    Name = "Cast Once",
+    Callback = function()
+        local args = {1}
+        game:GetService("ReplicatedStorage")
+            :WaitForChild("Packages")
+            :WaitForChild("Knit")
+            :WaitForChild("Services")
+            :WaitForChild("Fish")
+            :WaitForChild("RF")
+            :WaitForChild("CastRequest"):InvokeServer(unpack(args))
+    end,
+})
+
+MainTab:CreateButton({
+    Name = "Instant Catch Once",
+    Callback = function()
+        local args = {true}
+        game:GetService("ReplicatedStorage")
+            :WaitForChild("Packages")
+            :WaitForChild("Knit")
+            :WaitForChild("Services")
+            :WaitForChild("Fish")
+            :WaitForChild("RF")
+            :WaitForChild("MinigameResolved"):InvokeServer(unpack(args))
+    end,
+})
+
+MainTab:CreateButton({
+    Name = "Sell All Fish Now",
+    Callback = function()
+        game:GetService("ReplicatedStorage")
+            :WaitForChild("Packages")
+            :WaitForChild("Knit")
+            :WaitForChild("Services")
+            :WaitForChild("Fish")
+            :WaitForChild("RE")
+            :WaitForChild("SellFish"):FireServer()
+        Rayfield:Notify({Title = "Sell", Content = "Sell All triggered!", Duration = 2})
+    end,
+})
+
+Rayfield:Notify({
+    Title = "Script Loaded",
+    Content = "Fishing Chef Auto Fish is ready!\nUse 'Auto Fish' toggle",
+    Duration = 6,
+})
